@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { shell } from "electron";
 
 import { DeleteResultItem } from "../../shared/types";
 import { isHardBlocked, isUnderAny } from "./platform";
@@ -30,7 +31,7 @@ export async function safeDelete(
       if (permanent) {
         await fs.rm(p, { force: true });
       } else {
-        await (await import("trash")).default(p);
+        await shell.trashItem(p);
       }
       results.push({ path: p, ok: true });
     } catch (e) {

@@ -217,7 +217,7 @@ export function StatusBanner(props: { tone: "success" | "danger"; children: Reac
       className="pcc-fade-in"
       style={{
         display: "flex",
-        alignItems: "center",
+        flexDirection: "column",
         gap: 8,
         fontSize: 13,
         fontWeight: 500,
@@ -229,6 +229,61 @@ export function StatusBanner(props: { tone: "success" | "danger"; children: Reac
       }}
     >
       {props.children}
+    </div>
+  );
+}
+
+export function StatusBannerRow(props: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>{props.children}</div>
+  );
+}
+
+export function DetailsToggle(props: { open: boolean; onToggle: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={props.onToggle}
+      style={{
+        marginLeft: "auto",
+        background: "transparent",
+        border: "none",
+        padding: 0,
+        font: "inherit",
+        fontWeight: 600,
+        fontSize: 12.5,
+        color: "inherit",
+        textDecoration: "underline",
+        cursor: "pointer",
+        opacity: 0.85,
+      }}
+    >
+      {props.label} {props.open ? "\u25B4" : "\u25BE"}
+    </button>
+  );
+}
+
+export function FailedFilesList(props: { items: { path: string; error?: string }[] }) {
+  return (
+    <div
+      style={{
+        maxHeight: 220,
+        overflowY: "auto",
+        background: "rgba(0,0,0,0.035)",
+        borderRadius: radius.sm,
+        padding: "8px 10px",
+        fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+        fontSize: 11.5,
+        fontWeight: 400,
+        lineHeight: 1.6,
+      }}
+    >
+      {props.items.map((item, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, padding: "3px 0", wordBreak: "break-all" }}>
+          <span style={{ flex: "0 0 auto", opacity: 0.7 }}>{item.path}</span>
+          <span style={{ opacity: 0.65 }}>{item.error ?? "unknown error"}</span>
+        </div>
+      ))}
     </div>
   );
 }

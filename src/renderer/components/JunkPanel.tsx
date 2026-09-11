@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { JunkCategory, JunkScanResult } from "../../shared/types";
+import { DeleteResultItem, JunkCategory, JunkScanResult } from "../../shared/types";
 import { colors, fontFamily, formatBytes } from "../theme";
 import {
   ConfirmModal,
   DangerSwitch,
+  DetailsToggle,
   EmptyState,
+  FailedFilesList,
   Icon,
   PrimaryButton,
   RiskBadge,
@@ -12,6 +14,7 @@ import {
   Spinner,
   StatPill,
   StatusBanner,
+  StatusBannerRow,
   iconForCategory,
 } from "./ui";
 
@@ -23,10 +26,11 @@ export function JunkPanel() {
   const [confirming, setConfirming] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const [status, setStatus] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
+  const [failedItems, setFailedItems] = useState<DeleteResultItem[]>([]);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   async function scan() {
     setScanning(true);
-    setStatus(null);
     const r = await window.api.scanJunk();
     setResult(r);
     setSelected(new Set());
@@ -58,11 +62,13 @@ export function JunkPanel() {
     setCleaning(true);
     const res = await window.api.deleteJunk({ paths: selectedPaths, permanent });
     const ok = res.filter((r) => r.ok).length;
-    const failed = res.filter((r) => !r.ok).length;
+    const failures = res.filter((r) => !r.ok);
     setStatus({
-      tone: failed ? "danger" : "success",
-      text: `Cleaned ${ok} file(s)${failed ? `, ${failed} failed` : ""}.`,
+      tone: failures.length ? "danger" : "success",
+      text: `Cleaned ${ok} file(s)${failures.length ? `, ${failures.length} failed` : ""}.`,
     });
+    setFailedItems(failures);
+    setDetailsOpen(false);
     setCleaning(false);
     await scan();
   }
@@ -112,8 +118,18 @@ export function JunkPanel() {
 
       {status && (
         <StatusBanner tone={status.tone}>
-          <Icon.Check size={15} />
-          {status.text}
+          <StatusBannerRow>
+            <Icon.Check size={15} />
+            {status.text}
+            {failedItems.length > 0 && (
+              <DetailsToggle
+                open={detailsOpen}
+                onToggle={() => setDetailsOpen((v) => !v)}
+                label="View details"
+              />
+            )}
+          </StatusBannerRow>
+          {detailsOpen && failedItems.length > 0 && <FailedFilesList items={failedItems} />}
         </StatusBanner>
       )}
 
