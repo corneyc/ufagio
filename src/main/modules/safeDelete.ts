@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
 import { shell } from "electron";
 
 import { DeleteResultItem } from "../../shared/types";
@@ -26,6 +27,14 @@ export async function safeDelete(
     if (!isUnderAny(p, allowedRoots)) {
       results.push({ path: p, ok: false, error: "blocked: path was not part of the last scan" });
       continue;
+    }
+    if (!permanent) {
+      try {
+        await fs.access(p, fsConstants.W_OK);
+      } catch {
+        results.push({ path: p, ok: false, error: "blocked: no delete permission (admin required)" });
+        continue;
+      }
     }
     try {
       if (permanent) {
