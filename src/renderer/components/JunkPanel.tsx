@@ -33,7 +33,9 @@ export function JunkPanel() {
     setScanning(true);
     const r = await window.api.scanJunk();
     setResult(r);
-    setSelected(new Set());
+    setSelected(
+      new Set(r.categories.filter((c) => c.entries.length > 0 && c.risk === "safe").map((c) => c.id))
+    );
     setScanning(false);
   }
 
