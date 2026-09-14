@@ -28,6 +28,8 @@ export function JunkPanel() {
   const [status, setStatus] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
   const [failedItems, setFailedItems] = useState<DeleteResultItem[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState<Set<string>>(new Set());
+  const [reviewPicks, setReviewPicks] = useState<Record<string, Set<string>>>({});
 
   async function scan() {
     setScanning(true);
@@ -36,6 +38,8 @@ export function JunkPanel() {
     setSelected(
       new Set(r.categories.filter((c) => c.entries.length > 0 && c.risk === "safe").map((c) => c.id))
     );
+    setReviewOpen(new Set());
+    setReviewPicks({});
     setScanning(false);
   }
 
@@ -48,15 +52,54 @@ export function JunkPanel() {
     });
   }
 
-  const cleanable = (result?.categories ?? []).filter((c) => c.entries.length > 0);
-  const allSelected = cleanable.length > 0 && cleanable.every((c) => selected.has(c.id));
-  function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(cleanable.map((c) => c.id)));
+  function toggleReviewOpen(catId: string) {
+    setReviewOpen((prev) => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId);
+      else next.add(catId);
+      return next;
+    });
   }
 
-  const selectedCategories = (result?.categories ?? []).filter((c) => selected.has(c.id));
-  const selectedSize = selectedCategories.reduce((a, c) => a + c.totalSize, 0);
-  const selectedPaths = selectedCategories.flatMap((c) => c.entries.map((e) => e.path));
+  function toggleReviewFile(catId: string, path: string) {
+    setReviewPicks((prev) => {
+      const set = new Set(prev[catId] ?? []);
+      if (set.has(path)) set.delete(path);
+      else set.add(path);
+      return { ...prev, [catId]: set };
+    });
+  }
+
+  function toggleReviewCategoryAll(cat: JunkCategory) {
+    setReviewPicks((prev) => {
+      const current = prev[cat.id] ?? new Set<string>();
+      const allPicked = cat.entries.length > 0 && current.size === cat.entries.length;
+      const next = allPicked ? new Set<string>() : new Set(cat.entries.map((e) => e.path));
+      return { ...prev, [cat.id]: next };
+    });
+  }
+
+  const cleanable = (result?.categories ?? []).filter((c) => c.entries.length > 0);
+  const safeCleanable = cleanable.filter((c) => c.risk === "safe");
+  const allSelected = safeCleanable.length > 0 && safeCleanable.every((c) => selected.has(c.id));
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(safeCleanable.map((c) => c.id)));
+  }
+
+  const selectedCategories = (result?.categories ?? []).filter(
+    (c) => c.risk === "safe" && selected.has(c.id)
+  );
+  const reviewPickedSize = (result?.categories ?? []).reduce((sum, c) => {
+    const picks = reviewPicks[c.id];
+    if (!picks || picks.size === 0) return sum;
+    return sum + c.entries.filter((e) => picks.has(e.path)).reduce((a, e) => a + e.size, 0);
+  }, 0);
+  const reviewPickedPaths = Object.values(reviewPicks).flatMap((s) => Array.from(s));
+  const selectedSize = selectedCategories.reduce((a, c) => a + c.totalSize, 0) + reviewPickedSize;
+  const selectedPaths = [
+    ...selectedCategories.flatMap((c) => c.entries.map((e) => e.path)),
+    ...reviewPickedPaths,
+  ];
   const totalFound = (result?.categories ?? []).reduce((a, c) => a + c.totalSize, 0);
 
   async function performClean() {
@@ -164,11 +207,11 @@ export function JunkPanel() {
           >
             <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
               <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-              Select all ({cleanable.length} categor{cleanable.length === 1 ? "y" : "ies"})
+              Select all ({safeCleanable.length} categor{safeCleanable.length === 1 ? "y" : "ies"})
             </label>
           </div>
 
-          {result.categories.map((cat) => {
+          {result.categories.filter((cat) => cat.risk === "safe").map((cat) => {
             const CatIcon = iconForCategory(cat.id);
             const empty = cat.entries.length === 0;
             const checked = selected.has(cat.id);
@@ -225,6 +268,121 @@ export function JunkPanel() {
               </label>
             );
           })}
+
+          {result.categories
+            .filter((cat) => cat.risk === "caution")
+            .map((cat) => {
+              const CatIcon = iconForCategory(cat.id);
+              const empty = cat.entries.length === 0;
+              const picks = reviewPicks[cat.id] ?? new Set<string>();
+              const allPicked = !empty && picks.size === cat.entries.length;
+              const somePicked = picks.size > 0 && !allPicked;
+              const open = reviewOpen.has(cat.id);
+              return (
+                <div
+                  key={cat.id}
+                  className="pcc-card"
+                  style={{
+                    border: `1px solid ${allPicked || somePicked ? colors.primary : colors.border}`,
+                    background: allPicked || somePicked ? colors.primaryLight : colors.surface,
+                    borderRadius: 10,
+                    marginBottom: 8,
+                    opacity: empty ? 0.5 : 1,
+                    transition: "border-color 0.12s ease, background 0.12s ease",
+                  }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", padding: "13px 14px" }}>
+                    <input
+                      type="checkbox"
+                      disabled={empty}
+                      checked={allPicked}
+                      ref={(el) => {
+                        if (el) el.indeterminate = somePicked;
+                      }}
+                      onChange={() => toggleReviewCategoryAll(cat)}
+                      style={{ marginRight: 14, cursor: empty ? "default" : "pointer" }}
+                    />
+                    <div
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 8,
+                        background: colors.bgAlt,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        marginRight: 12,
+                        flexShrink: 0,
+                        color: colors.textMuted,
+                      }}
+                    >
+                      <CatIcon size={17} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center" }}>
+                        {cat.label}
+                        <RiskBadge risk={cat.risk} />
+                      </div>
+                      <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>
+                        {cat.entries.length} file(s){cat.error ? " · some paths were unreadable" : ""}
+                        {picks.size > 0 ? ` · ${picks.size} selected` : ""}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: colors.text, marginRight: empty ? 0 : 12 }}>
+                      {formatBytes(cat.totalSize)}
+                    </div>
+                    {!empty && (
+                      <DetailsToggle
+                        open={open}
+                        onToggle={() => toggleReviewOpen(cat.id)}
+                        label="Review files"
+                      />
+                    )}
+                  </div>
+                  {open && !empty && (
+                    <div style={{ padding: "0 14px 14px 60px" }}>
+                      <div
+                        style={{
+                          maxHeight: 240,
+                          overflowY: "auto",
+                          background: "rgba(0,0,0,0.035)",
+                          borderRadius: 8,
+                          padding: "6px 10px",
+                        }}
+                      >
+                        {cat.entries.map((entry) => {
+                          const picked = picks.has(entry.path);
+                          return (
+                            <label
+                              key={entry.path}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                padding: "4px 0",
+                                fontSize: 11.5,
+                                fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+                                cursor: "pointer",
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={picked}
+                                onChange={() => toggleReviewFile(cat.id, entry.path)}
+                              />
+                              <span style={{ flex: 1, minWidth: 0, wordBreak: "break-all", opacity: 0.85 }}>
+                                {entry.path}
+                              </span>
+                              <span style={{ flexShrink: 0, opacity: 0.65 }}>{formatBytes(entry.size)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
           <div
             style={{
