@@ -38,10 +38,27 @@ async function statVolume(mount: string): Promise<VolumeInfo | null> {
 
 export async function getVolumes(): Promise<VolumeInfo[]> {
   if (isWin) {
+    // Office machines commonly map the same network share under several
+    // drive letters (legacy scripts, per-department habit, etc). Counting
+    // each letter separately double- or triple-counts that one volume's
+    // used space, so dedupe by device id exactly like the Mac branch below.
     const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
     const candidates = letters.map((l) => `${l}:\\`).filter((p) => fs.existsSync(p));
-    const results = await Promise.all(candidates.map(statVolume));
-    return results.filter((v): v is VolumeInfo => v !== null);
+    const seenDevices = new Set<number>();
+    const results: VolumeInfo[] = [];
+    for (const m of candidates) {
+      let dev: number;
+      try {
+        dev = (await fsp.stat(m)).dev;
+      } catch {
+        continue; // drive letter vanished between existsSync and stat
+      }
+      if (seenDevices.has(dev)) continue;
+      seenDevices.add(dev);
+      const v = await statVolume(m);
+      if (v) results.push(v);
+    }
+    return results;
   }
   if (isMac) {
     // Boot volume plus anything else mounted under /Volumes (external
