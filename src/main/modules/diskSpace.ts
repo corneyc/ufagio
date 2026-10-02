@@ -195,8 +195,15 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
   let names: string[] = [];
   try {
     names = await fsp.readdir(dirPath);
-  } catch {
-    return { parent: dirPath, children: [], scannedAt: Date.now() };
+  } catch (e) {
+    return {
+      parent: dirPath,
+      children: [],
+      scannedAt: Date.now(),
+      error: (e as NodeJS.ErrnoException).code === "EPERM" || (e as NodeJS.ErrnoException).code === "EACCES"
+        ? "Permission denied — this folder is locked down by Windows (common for app sandbox data). Try running Ufagio as administrator."
+        : `Could not read this folder: ${(e as Error).message}`,
+    };
   }
 
   // Gathered once per listing, not per entry — reg query and tasklist are

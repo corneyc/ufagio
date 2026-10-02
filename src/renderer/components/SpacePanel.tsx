@@ -29,6 +29,7 @@ export function SpacePanel() {
   const [pathStack, setPathStack] = useState<string[]>([]);
   const [children, setChildren] = useState<SpaceChild[] | null>(null);
   const [listing, setListing] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
   const [permanent, setPermanent] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -45,6 +46,7 @@ export function SpacePanel() {
     setSelected(new Set());
     const r = await window.api.listSpaceChildren(p);
     setChildren(r.children);
+    setListError(r.error ?? null);
     setListing(false);
   }
 
@@ -253,7 +255,11 @@ export function SpacePanel() {
         </StatusBanner>
       )}
 
-      {!listing && children && children.length === 0 && (
+      {!listing && children && children.length === 0 && listError && (
+        <EmptyState icon={<Icon.Folder size={40} />} title="Couldn't read this folder" body={listError} />
+      )}
+
+      {!listing && children && children.length === 0 && !listError && (
         <EmptyState icon={<Icon.Folder size={40} />} title="Empty" body="Nothing in this folder." />
       )}
 

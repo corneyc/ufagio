@@ -95,6 +95,10 @@ export interface SpaceListing {
   parent: string;
   children: SpaceChild[];
   scannedAt: number;
+  // Set when the folder itself couldn't be read (permission-locked, e.g.
+  // Windows's UWP package sandboxes) — distinguishes that from a folder
+  // that's genuinely empty, which looks identical otherwise.
+  error?: string;
 }
 
 export interface ApiBridge {
