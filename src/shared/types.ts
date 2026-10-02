@@ -59,6 +59,39 @@ export interface PrivacyScanResult {
   scannedAt: number;
 }
 
+export interface VolumeInfo {
+  mount: string;
+  totalBytes: number;
+  freeBytes: number;
+  usedBytes: number;
+  pctFree: number;
+}
+
+export interface InstalledProgram {
+  name: string;
+  sizeBytes: number;
+}
+
+export interface SpaceOverview {
+  volumes: VolumeInfo[];
+  installedPrograms: InstalledProgram[]; // empty on non-Windows
+  scannedAt: number;
+}
+
+export interface SpaceChild {
+  name: string;
+  path: string;
+  isDir: boolean;
+  sizeBytes: number;
+  error?: string;
+}
+
+export interface SpaceListing {
+  parent: string;
+  children: SpaceChild[];
+  scannedAt: number;
+}
+
 export interface ApiBridge {
   scanJunk: () => Promise<JunkScanResult>;
   deleteJunk: (req: DeleteRequest) => Promise<DeleteResultItem[]>;
@@ -66,5 +99,9 @@ export interface ApiBridge {
   toggleStartupItem: (id: string, enabled: boolean) => Promise<{ ok: boolean; error?: string }>;
   scanPrivacy: () => Promise<PrivacyScanResult>;
   cleanPrivacy: (req: DeleteRequest) => Promise<DeleteResultItem[]>;
+  getSpaceOverview: () => Promise<SpaceOverview>;
+  defaultSpaceRoot: () => Promise<string>;
+  listSpaceChildren: (dirPath: string) => Promise<SpaceListing>;
+  deleteSpaceItem: (req: DeleteRequest) => Promise<DeleteResultItem[]>;
   platform: () => NodeJS.Platform;
 }

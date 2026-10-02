@@ -4,11 +4,13 @@ import { GlobalStyles, Icon } from "./components/ui";
 import { JunkPanel } from "./components/JunkPanel";
 import { StartupPanel } from "./components/StartupPanel";
 import { PrivacyPanel } from "./components/PrivacyPanel";
+import { SpacePanel } from "./components/SpacePanel";
 
-type Tab = "junk" | "startup" | "privacy";
+type Tab = "junk" | "space" | "startup" | "privacy";
 
 const TABS: { id: Tab; label: string; icon: (p?: { size?: number; color?: string }) => JSX.Element }[] = [
   { id: "junk", label: "Clean Junk", icon: Icon.Broom },
+  { id: "space", label: "Space Explorer", icon: Icon.Disk },
   { id: "startup", label: "Startup Manager", icon: Icon.Rocket },
   { id: "privacy", label: "Privacy Cleaner", icon: Icon.Shield },
 ];
@@ -110,6 +112,7 @@ export function App() {
       <div style={{ flex: 1, overflow: "auto" }}>
         <div style={{ padding: 32, boxSizing: "border-box", maxWidth: 820 }}>
           {tab === "junk" && <JunkPanel />}
+          {tab === "space" && <SpacePanel />}
           {tab === "startup" && <StartupPanel />}
           {tab === "privacy" && <PrivacyPanel />}
         </div>

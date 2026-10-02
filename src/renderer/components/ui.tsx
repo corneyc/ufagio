@@ -390,6 +390,8 @@ export const Icon = {
     svg(<><path d="M12 3 2 20h20L12 3z" /><path d="M12 10v4" /><path d="M12 17h.01" /></>, p),
   Check: (p: { size?: number; color?: string } = {}) =>
     svg(<path d="M20 6 9 17l-5-5" />, p),
+  Disk: (p: { size?: number; color?: string } = {}) =>
+    svg(<><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 15h18" /><path d="M8 19h.01M12 19h.01" /></>, p),
 };
 
 // Best-effort mapping from a scan category id to an icon — falls back to
