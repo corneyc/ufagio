@@ -177,7 +177,7 @@ export function SpacePanel() {
             </div>
           ))}
           <div style={{ fontSize: 11.5, color: colors.textFaint, marginTop: 10 }}>
-            Read-only — uninstall from Settings &gt; Apps.
+            Read-only — uninstall {window.api.platform() === "darwin" ? "by dragging it to Trash" : "from Settings > Apps"}.
           </div>
         </div>
       )}

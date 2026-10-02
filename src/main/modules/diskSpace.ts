@@ -4,11 +4,16 @@ import path from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { InstalledProgram, SpaceChild, SpaceListing, VolumeInfo } from "../../shared/types";
-import { home, isWin, winPaths } from "./platform";
+import { home, isMac, isWin, winPaths } from "./platform";
 import { sumSize, walkFiles } from "./fsScan";
 import { classifyEntry, getRunningProcessNames } from "./safetyAdvisor";
 
 const execFileAsync = promisify(execFile);
+
+// Virtual-disk formats worth flagging wherever they turn up: Hyper-V/WSL
+// (.vhd/.vhdx) on Windows, Parallels/VMware/UTM/Docker Desktop
+// (.vmdk/.qcow2/.vdi) on Mac.
+const VM_DISK_EXTENSIONS = /\.(vhdx?|vmdk|qcow2|vdi)$/i;
 
 // ---------------------------------------------------------------------------
 // Disk volumes — free/used per mounted drive
@@ -37,6 +42,34 @@ export async function getVolumes(): Promise<VolumeInfo[]> {
     const candidates = letters.map((l) => `${l}:\\`).filter((p) => fs.existsSync(p));
     const results = await Promise.all(candidates.map(statVolume));
     return results.filter((v): v is VolumeInfo => v !== null);
+  }
+  if (isMac) {
+    // Boot volume plus anything else mounted under /Volumes (external
+    // drives, disk images, other APFS volumes). Modern macOS sometimes
+    // mounts the boot volume at both "/" and its own /Volumes entry, so
+    // dedupe by device id rather than by path.
+    const mounts = ["/"];
+    try {
+      const extra = await fsp.readdir("/Volumes");
+      for (const v of extra) mounts.push(path.join("/Volumes", v));
+    } catch {
+      // /Volumes unreadable — root alone is still reported below
+    }
+    const seenDevices = new Set<number>();
+    const results: VolumeInfo[] = [];
+    for (const m of mounts) {
+      let dev: number;
+      try {
+        dev = (await fsp.stat(m)).dev;
+      } catch {
+        continue; // broken symlink or a volume that just unmounted
+      }
+      if (seenDevices.has(dev)) continue;
+      seenDevices.add(dev);
+      const v = await statVolume(m);
+      if (v) results.push(v);
+    }
+    return results;
   }
   const root = await statVolume("/");
   return root ? [root] : [];
@@ -76,8 +109,7 @@ async function queryUninstallRoot(rootKey: string): Promise<InstalledProgram[]> 
   }
 }
 
-export async function getTopInstalledPrograms(limit = 20): Promise<InstalledProgram[]> {
-  if (!isWin) return [];
+async function getWindowsInstalledPrograms(limit: number): Promise<InstalledProgram[]> {
   const all = (await Promise.all(UNINSTALL_ROOTS.map(queryUninstallRoot))).flat();
   // HKLM/WOW6432Node/HKCU can list the same product more than once —
   // keep the largest reported size per display name.
@@ -87,6 +119,39 @@ export async function getTopInstalledPrograms(limit = 20): Promise<InstalledProg
     if (!existing || p.sizeBytes > existing.sizeBytes) byName.set(p.name, p);
   }
   return [...byName.values()].sort((a, b) => b.sizeBytes - a.sizeBytes).slice(0, limit);
+}
+
+// macOS has no installed-programs registry — a "program" is a .app bundle
+// under /Applications or ~/Applications, and its size on disk already
+// includes everything it carries (unlike Windows, there's no separate
+// EstimatedSize to read; this walks each bundle directly).
+async function getMacInstalledPrograms(limit: number): Promise<InstalledProgram[]> {
+  const roots = ["/Applications", path.join(home, "Applications")];
+  const apps: InstalledProgram[] = [];
+  for (const root of roots) {
+    let entries: string[];
+    try {
+      entries = await fsp.readdir(root);
+    } catch {
+      continue;
+    }
+    for (const entry of entries) {
+      if (!entry.endsWith(".app")) continue;
+      try {
+        const sizeBytes = sumSize(await walkFiles(path.join(root, entry)));
+        apps.push({ name: entry.replace(/\.app$/, ""), sizeBytes });
+      } catch {
+        // unreadable bundle (permissions) — skip it, don't fail the listing
+      }
+    }
+  }
+  return apps.sort((a, b) => b.sizeBytes - a.sizeBytes).slice(0, limit);
+}
+
+export async function getTopInstalledPrograms(limit = 20): Promise<InstalledProgram[]> {
+  if (isWin) return getWindowsInstalledPrograms(limit);
+  if (isMac) return getMacInstalledPrograms(limit);
+  return [];
 }
 
 // ---------------------------------------------------------------------------
@@ -134,15 +199,17 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
         if (stat.isDirectory()) {
           const entries = await walkFiles(full);
           const sizeBytes = sumSize(entries);
-          // Reuses the walk we already did for sizing — no extra I/O to
-          // spot a mounted .vhdx buried a couple of levels down (this is
-          // exactly how the PC01 audit found Claude's local-agent-mode VM).
-          const containsVhd = entries.some((e) => /\.vhdx?$/i.test(e.path));
+          // Reuses the walk we already did for sizing — no extra I/O to spot
+          // a mounted virtual-disk image buried a couple of levels down
+          // (this is exactly how the PC01 audit found Claude's
+          // local-agent-mode VM; Docker Desktop's VM disk on Mac is the
+          // same shape, just .qcow2/.vmdk instead of .vhdx).
+          const containsVmDisk = entries.some((e) => VM_DISK_EXTENSIONS.test(e.path));
           const { risk, reason } = classifyEntry({
             name,
             parentDir: dirPath,
             isDir: true,
-            containsVhd,
+            containsVmDisk,
             installedProgramNames,
             runningProcessNames,
           });
@@ -152,7 +219,7 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
           name,
           parentDir: dirPath,
           isDir: false,
-          containsVhd: false,
+          containsVmDisk: false,
           installedProgramNames,
           runningProcessNames,
         });

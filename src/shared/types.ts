@@ -74,7 +74,7 @@ export interface InstalledProgram {
 
 export interface SpaceOverview {
   volumes: VolumeInfo[];
-  installedPrograms: InstalledProgram[]; // empty on non-Windows
+  installedPrograms: InstalledProgram[]; // empty on Linux (Win: registry, Mac: /Applications)
   scannedAt: number;
 }
 

@@ -24,38 +24,44 @@ const SAFE_NAME_PATTERNS: RegExp[] = [
 ];
 
 const UPDATER_NAME_PATTERN = /-updater$/i;
-const VM_NAME_PATTERN = /^(wsl|hyper-v|virtualbox ?vms?)$/i;
+const VM_NAME_PATTERN = /^(wsl|hyper-v|virtualbox ?vms?|parallels|vmware fusion)$/i;
 const PROGRAMS_FOLDER_PATTERN = /^programs?$/i;
 const PACKAGES_FOLDER_PATTERN = /^packages$/i;
+const APP_BUNDLE_PATTERN = /\.app$/i;
 
 /**
  * Pure, synchronous classification — no filesystem or process I/O here.
- * Callers gather `containsVhd` (from a size scan they're already doing),
- * `installedProgramNames`, and `runningProcessNames` once per listing and
- * pass them in, rather than this function re-deriving them per entry.
+ * Callers gather `containsVmDisk` (from a size scan they're already
+ * doing), `installedProgramNames`, and `runningProcessNames` once per
+ * listing and pass them in, rather than this function re-deriving them
+ * per entry.
  */
 export function classifyEntry(opts: {
   name: string;
   parentDir: string;
   isDir: boolean;
-  containsVhd: boolean;
+  containsVmDisk: boolean;
   installedProgramNames: Set<string>;
   runningProcessNames: Set<string>;
 }): Classification {
-  const { name, parentDir, isDir, containsVhd, installedProgramNames, runningProcessNames } = opts;
+  const { name, parentDir, isDir, containsVmDisk, installedProgramNames, runningProcessNames } = opts;
   const lower = name.toLowerCase();
+  const parentBase = path.basename(parentDir).toLowerCase();
 
-  if (containsVhd) {
+  if (containsVmDisk) {
     return {
       risk: "danger",
-      reason: "Contains a virtual-disk image (.vhdx) — likely mounted; quit the owning app first",
+      reason: "Contains a virtual-disk image — likely mounted; quit the owning app first",
     };
   }
   if (VM_NAME_PATTERN.test(name)) {
     return { risk: "danger", reason: "Virtual machine storage" };
   }
-  if (isDir && PROGRAMS_FOLDER_PATTERN.test(name) && /local$/i.test(path.basename(parentDir))) {
+  if (isDir && PROGRAMS_FOLDER_PATTERN.test(name) && /local$/i.test(parentBase)) {
     return { risk: "danger", reason: "Installed application binaries, not cache" };
+  }
+  if (APP_BUNDLE_PATTERN.test(name) && (parentDir === "/Applications" || parentBase === "applications")) {
+    return { risk: "danger", reason: "Installed application bundle, not cache" };
   }
   if (installedProgramNames.has(lower)) {
     return {
