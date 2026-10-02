@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { DeleteResultItem, SpaceChild, SpaceOverview } from "../../shared/types";
+import { DeleteResultItem, SpaceChild, SpaceOverview, SpaceRisk } from "../../shared/types";
 import { colors, fontFamily, formatBytes } from "../theme";
 import {
   ConfirmModal,
@@ -16,6 +16,12 @@ import {
   StatusBanner,
   StatusBannerRow,
 } from "./ui";
+
+function worstRisk(items: SpaceChild[]): SpaceRisk {
+  if (items.some((c) => c.risk === "danger")) return "danger";
+  if (items.some((c) => c.risk === "caution")) return "caution";
+  return "safe";
+}
 
 export function SpacePanel() {
   const [overview, setOverview] = useState<SpaceOverview | null>(null);
@@ -76,6 +82,7 @@ export function SpacePanel() {
 
   const selectedChildren = (children ?? []).filter((c) => selected.has(c.path));
   const selectedSize = selectedChildren.reduce((a, c) => a + c.sizeBytes, 0);
+  const selectedDanger = selectedChildren.filter((c) => c.risk === "danger");
   const volumesUsed = overview?.volumes.reduce((a, v) => a + v.usedBytes, 0) ?? 0;
 
   async function performDelete() {
@@ -236,6 +243,11 @@ export function SpacePanel() {
         <div>
           {children.map((c) => {
             const checked = selected.has(c.path);
+            const borderColor = checked
+              ? colors.primary
+              : c.risk === "danger"
+              ? colors.danger + "55"
+              : colors.border;
             return (
               <div
                 key={c.path}
@@ -244,7 +256,7 @@ export function SpacePanel() {
                   display: "flex",
                   alignItems: "center",
                   padding: "11px 14px",
-                  border: `1px solid ${checked ? colors.primary : colors.border}`,
+                  border: `1px solid ${borderColor}`,
                   background: checked ? colors.primaryLight : colors.surface,
                   borderRadius: 10,
                   marginBottom: 6,
@@ -270,13 +282,19 @@ export function SpacePanel() {
                   {c.isDir ? <Icon.Folder size={15} /> : <Icon.Document size={15} />}
                 </div>
                 <div
-                  style={{ flex: 1, minWidth: 0, fontSize: 13.5, cursor: c.isDir ? "pointer" : "default" }}
+                  style={{ flex: 1, minWidth: 0, cursor: c.isDir ? "pointer" : "default" }}
                   onClick={() => drillInto(c)}
                 >
-                  {c.name}
-                  {c.error && <span style={{ color: colors.danger, fontSize: 11, marginLeft: 8 }}>unreadable</span>}
+                  <div style={{ fontSize: 13.5, display: "flex", alignItems: "center" }}>
+                    {c.name}
+                    <RiskBadge risk={c.risk} />
+                    {c.error && <span style={{ color: colors.danger, fontSize: 11, marginLeft: 8 }}>unreadable</span>}
+                  </div>
+                  <div style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 2 }}>{c.reason}</div>
                 </div>
-                <div style={{ fontSize: 13.5, fontWeight: 700, color: colors.text, marginRight: c.isDir ? 10 : 0 }}>
+                <div
+                  style={{ fontSize: 13.5, fontWeight: 700, color: colors.text, marginRight: c.isDir ? 10 : 0, marginLeft: 10 }}
+                >
                   {formatBytes(c.sizeBytes)}
                 </div>
                 {c.isDir && (
@@ -311,7 +329,7 @@ export function SpacePanel() {
               <strong style={{ color: colors.text, fontSize: 15 }}>{formatBytes(selectedSize)}</strong> selected ·{" "}
               {selected.size} item(s)
             </div>
-            <RiskBadge risk="caution" />
+            <RiskBadge risk={worstRisk(selectedChildren)} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <DangerSwitch
@@ -330,9 +348,15 @@ export function SpacePanel() {
 
       {confirming && (
         <ConfirmModal
-          danger={permanent}
+          danger={permanent || selectedDanger.length > 0}
           title={`${permanent ? "Permanently delete" : "Move to Trash"} ${selected.size} item(s)?`}
-          body={`This will free up ${formatBytes(selectedSize)}. If another app has one of these files open, that item's delete will fail rather than corrupt it — quit the app first if needed. ${
+          body={`${
+            selectedDanger.length > 0
+              ? `${selectedDanger.length} of these is flagged Danger: ${selectedDanger
+                  .map((c) => `"${c.name}" (${c.reason})`)
+                  .join("; ")}. `
+              : ""
+          }This will free up ${formatBytes(selectedSize)}. If another app has one of these files open, that item's delete will fail rather than corrupt it — quit the app first if needed. ${
             permanent ? "This skips the Recycle Bin — it cannot be undone." : "Items go to the system Trash/Recycle Bin."
           }`}
           confirmLabel={permanent ? "Delete permanently" : "Move to Trash"}

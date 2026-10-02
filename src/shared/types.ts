@@ -78,11 +78,15 @@ export interface SpaceOverview {
   scannedAt: number;
 }
 
+export type SpaceRisk = "safe" | "caution" | "danger";
+
 export interface SpaceChild {
   name: string;
   path: string;
   isDir: boolean;
   sizeBytes: number;
+  risk: SpaceRisk;
+  reason: string;
   error?: string;
 }
 

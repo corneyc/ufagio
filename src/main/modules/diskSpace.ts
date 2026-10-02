@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import { InstalledProgram, SpaceChild, SpaceListing, VolumeInfo } from "../../shared/types";
 import { home, isWin, winPaths } from "./platform";
 import { sumSize, walkFiles } from "./fsScan";
+import { classifyEntry, getRunningProcessNames } from "./safetyAdvisor";
 
 const execFileAsync = promisify(execFile);
 
@@ -116,6 +117,14 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
     return { parent: dirPath, children: [], scannedAt: Date.now() };
   }
 
+  // Gathered once per listing, not per entry — reg query and tasklist are
+  // each a single process spawn regardless of how many children we classify.
+  const [installedPrograms, runningProcessNames] = await Promise.all([
+    getTopInstalledPrograms(200),
+    getRunningProcessNames(),
+  ]);
+  const installedProgramNames = new Set(installedPrograms.map((p) => p.name.toLowerCase()));
+
   const settled = await Promise.all(
     names.map(async (name): Promise<SpaceChild | null> => {
       const full = path.join(dirPath, name);
@@ -123,12 +132,41 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
         const stat = await fsp.lstat(full);
         if (stat.isSymbolicLink()) return null; // never follow, never list
         if (stat.isDirectory()) {
-          const sizeBytes = sumSize(await walkFiles(full));
-          return { name, path: full, isDir: true, sizeBytes };
+          const entries = await walkFiles(full);
+          const sizeBytes = sumSize(entries);
+          // Reuses the walk we already did for sizing — no extra I/O to
+          // spot a mounted .vhdx buried a couple of levels down (this is
+          // exactly how the PC01 audit found Claude's local-agent-mode VM).
+          const containsVhd = entries.some((e) => /\.vhdx?$/i.test(e.path));
+          const { risk, reason } = classifyEntry({
+            name,
+            parentDir: dirPath,
+            isDir: true,
+            containsVhd,
+            installedProgramNames,
+            runningProcessNames,
+          });
+          return { name, path: full, isDir: true, sizeBytes, risk, reason };
         }
-        return { name, path: full, isDir: false, sizeBytes: stat.size };
+        const { risk, reason } = classifyEntry({
+          name,
+          parentDir: dirPath,
+          isDir: false,
+          containsVhd: false,
+          installedProgramNames,
+          runningProcessNames,
+        });
+        return { name, path: full, isDir: false, sizeBytes: stat.size, risk, reason };
       } catch (e) {
-        return { name, path: full, isDir: false, sizeBytes: 0, error: (e as Error).message };
+        return {
+          name,
+          path: full,
+          isDir: false,
+          sizeBytes: 0,
+          risk: "caution",
+          reason: "Could not be read",
+          error: (e as Error).message,
+        };
       }
     })
   );

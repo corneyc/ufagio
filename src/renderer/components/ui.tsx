@@ -76,8 +76,13 @@ export function SecondaryButton(props: React.ButtonHTMLAttributes<HTMLButtonElem
   );
 }
 
-export function RiskBadge({ risk }: { risk: "safe" | "caution" }) {
-  const isSafe = risk === "safe";
+export function RiskBadge({ risk }: { risk: "safe" | "caution" | "danger" }) {
+  const tone =
+    risk === "safe"
+      ? { bg: colors.safeLight, fg: colors.safe, label: "Safe" }
+      : risk === "danger"
+      ? { bg: colors.dangerLight, fg: colors.danger, label: "Danger" }
+      : { bg: colors.cautionLight, fg: colors.caution, label: "Review first" };
   return (
     <span
       style={{
@@ -86,13 +91,13 @@ export function RiskBadge({ risk }: { risk: "safe" | "caution" }) {
         letterSpacing: 0.3,
         padding: "3px 8px",
         borderRadius: 20,
-        background: isSafe ? colors.safeLight : colors.cautionLight,
-        color: isSafe ? colors.safe : colors.caution,
+        background: tone.bg,
+        color: tone.fg,
         marginLeft: 8,
         textTransform: "uppercase",
       }}
     >
-      {isSafe ? "Safe" : "Review first"}
+      {tone.label}
     </span>
   );
 }
