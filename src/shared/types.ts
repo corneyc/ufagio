@@ -86,6 +86,7 @@ export interface SpaceChild {
   isDir: boolean;
   sizeBytes: number;
   risk: SpaceRisk;
+  label: string;
   reason: string;
   error?: string;
 }

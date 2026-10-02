@@ -9,6 +9,10 @@ const execFileAsync = promisify(execFile);
 export interface Classification {
   risk: SpaceRisk;
   reason: string;
+  // Short, scannable badge text — "Review first" on its own told the user
+  // nothing about what to actually do; this names the specific concern
+  // ("In use", "Updater cache"...) so the badge itself is actionable.
+  label: string;
 }
 
 // Folder/file names that are, by convention, regenerable caches or build
@@ -51,45 +55,56 @@ export function classifyEntry(opts: {
   if (containsVmDisk) {
     return {
       risk: "danger",
+      label: "Virtual disk",
       reason: "Contains a virtual-disk image — likely mounted; quit the owning app first",
     };
   }
   if (VM_NAME_PATTERN.test(name)) {
-    return { risk: "danger", reason: "Virtual machine storage" };
+    return { risk: "danger", label: "VM storage", reason: "Virtual machine storage" };
   }
   if (isDir && PROGRAMS_FOLDER_PATTERN.test(name) && /local$/i.test(parentBase)) {
-    return { risk: "danger", reason: "Installed application binaries, not cache" };
+    return { risk: "danger", label: "App binaries", reason: "Installed application binaries, not cache" };
   }
   if (APP_BUNDLE_PATTERN.test(name) && (parentDir === "/Applications" || parentBase === "applications")) {
-    return { risk: "danger", reason: "Installed application bundle, not cache" };
+    return { risk: "danger", label: "App bundle", reason: "Installed application bundle, not cache" };
   }
   if (installedProgramNames.has(lower)) {
     return {
       risk: "danger",
+      label: "Installed app",
       reason: "Matches an installed program's name — may be its install or data folder",
     };
   }
 
   if (isDir && SAFE_NAME_PATTERNS.some((re) => re.test(name))) {
-    return { risk: "safe", reason: "Regenerable cache or build output" };
+    return { risk: "safe", label: "Cache", reason: "Regenerable cache or build output" };
   }
 
   if (runningProcessNames.has(lower)) {
-    return { risk: "caution", reason: "A running process shares this name — close it before deleting" };
+    return {
+      risk: "caution",
+      label: "In use",
+      reason: "A running process shares this name — close it before deleting",
+    };
   }
   if (UPDATER_NAME_PATTERN.test(name)) {
-    return { risk: "caution", reason: "Auto-updater cache — will re-download on next update" };
+    return {
+      risk: "caution",
+      label: "Updater cache",
+      reason: "Auto-updater cache — will re-download on next update",
+    };
   }
   if (isDir && PACKAGES_FOLDER_PATTERN.test(name)) {
     return {
       risk: "caution",
+      label: "App storage",
       reason: "Per-app sandboxed storage — open each app to see what's using the space",
     };
   }
 
   return isDir
-    ? { risk: "caution", reason: "Unclassified folder — review contents before deleting" }
-    : { risk: "caution", reason: "Unclassified file — review before deleting" };
+    ? { risk: "caution", label: "Unknown folder", reason: "Unclassified folder — review contents before deleting" }
+    : { risk: "caution", label: "Unknown file", reason: "Unclassified file — review before deleting" };
 }
 
 // Best-effort "is something by this name currently running" check, used to

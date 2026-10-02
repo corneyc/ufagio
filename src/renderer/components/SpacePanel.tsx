@@ -92,6 +92,15 @@ export function SpacePanel() {
         .map((c) => (selectedChildren.length > 1 ? `${c.name}: ${c.reason}` : c.reason))
     ),
   ];
+  // The footer badge gets a specific label ("In use", "Updater cache"...)
+  // only when every item at the worst risk tier agrees on one — a mixed
+  // selection falls back to RiskBadge's generic "Review first"/"Danger".
+  const footerWorst = worstRisk(selectedChildren);
+  const footerWorstLabels = new Set(
+    selectedChildren.filter((c) => c.risk === footerWorst).map((c) => c.label)
+  );
+  const footerLabel: string | undefined =
+    footerWorstLabels.size === 1 ? Array.from(footerWorstLabels)[0] : undefined;
   const volumesUsed = overview?.volumes.reduce((a, v) => a + v.usedBytes, 0) ?? 0;
 
   async function performDelete() {
@@ -296,7 +305,7 @@ export function SpacePanel() {
                 >
                   <div style={{ fontSize: 13.5, display: "flex", alignItems: "center" }}>
                     {c.name}
-                    <RiskBadge risk={c.risk} />
+                    <RiskBadge risk={c.risk} label={c.label} />
                     {c.error && <span style={{ color: colors.danger, fontSize: 11, marginLeft: 8 }}>unreadable</span>}
                   </div>
                   <div style={{ fontSize: 11.5, color: colors.textMuted, marginTop: 2 }}>{c.reason}</div>
@@ -339,7 +348,7 @@ export function SpacePanel() {
                 <strong style={{ color: colors.text, fontSize: 15 }}>{formatBytes(selectedSize)}</strong> selected ·{" "}
                 {selected.size} item(s)
               </div>
-              <RiskBadge risk={worstRisk(selectedChildren)} />
+              <RiskBadge risk={footerWorst} label={footerLabel} />
             </div>
             {reviewReasons.length > 0 && (
               <div style={{ fontSize: 11.5, color: colors.textMuted, maxWidth: 480, lineHeight: 1.5 }}>

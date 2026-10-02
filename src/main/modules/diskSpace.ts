@@ -222,7 +222,7 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
           // local-agent-mode VM; Docker Desktop's VM disk on Mac is the
           // same shape, just .qcow2/.vmdk instead of .vhdx).
           const containsVmDisk = entries.some((e) => VM_DISK_EXTENSIONS.test(e.path));
-          const { risk, reason } = classifyEntry({
+          const { risk, label, reason } = classifyEntry({
             name,
             parentDir: dirPath,
             isDir: true,
@@ -230,9 +230,9 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
             installedProgramNames,
             runningProcessNames,
           });
-          return { name, path: full, isDir: true, sizeBytes, risk, reason };
+          return { name, path: full, isDir: true, sizeBytes, risk, label, reason };
         }
-        const { risk, reason } = classifyEntry({
+        const { risk, label, reason } = classifyEntry({
           name,
           parentDir: dirPath,
           isDir: false,
@@ -242,7 +242,7 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
           installedProgramNames,
           runningProcessNames,
         });
-        return { name, path: full, isDir: false, sizeBytes: stat.size, risk, reason };
+        return { name, path: full, isDir: false, sizeBytes: stat.size, risk, label, reason };
       } catch (e) {
         return {
           name,
@@ -250,6 +250,7 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
           isDir: false,
           sizeBytes: 0,
           risk: "caution",
+          label: "Unreadable",
           reason: "Could not be read",
           error: (e as Error).message,
         };
