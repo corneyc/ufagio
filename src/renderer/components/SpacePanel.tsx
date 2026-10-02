@@ -83,6 +83,15 @@ export function SpacePanel() {
   const selectedChildren = (children ?? []).filter((c) => selected.has(c.path));
   const selectedSize = selectedChildren.reduce((a, c) => a + c.sizeBytes, 0);
   const selectedDanger = selectedChildren.filter((c) => c.risk === "danger");
+  // What the footer's risk badge is actually warning about — one line per
+  // distinct reason so reviewing five items doesn't mean opening five rows.
+  const reviewReasons = [
+    ...new Set(
+      selectedChildren
+        .filter((c) => c.risk !== "safe")
+        .map((c) => (selectedChildren.length > 1 ? `${c.name}: ${c.reason}` : c.reason))
+    ),
+  ];
   const volumesUsed = overview?.volumes.reduce((a, v) => a + v.usedBytes, 0) ?? 0;
 
   async function performDelete() {
@@ -324,12 +333,19 @@ export function SpacePanel() {
             boxShadow: "0 -4px 16px rgba(20,20,31,0.04)",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ fontSize: 13.5, color: colors.textMuted }}>
-              <strong style={{ color: colors.text, fontSize: 15 }}>{formatBytes(selectedSize)}</strong> selected ·{" "}
-              {selected.size} item(s)
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ fontSize: 13.5, color: colors.textMuted }}>
+                <strong style={{ color: colors.text, fontSize: 15 }}>{formatBytes(selectedSize)}</strong> selected ·{" "}
+                {selected.size} item(s)
+              </div>
+              <RiskBadge risk={worstRisk(selectedChildren)} />
             </div>
-            <RiskBadge risk={worstRisk(selectedChildren)} />
+            {reviewReasons.length > 0 && (
+              <div style={{ fontSize: 11.5, color: colors.textMuted, maxWidth: 480, lineHeight: 1.5 }}>
+                {reviewReasons.join(" · ")}
+              </div>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <DangerSwitch
