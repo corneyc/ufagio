@@ -219,7 +219,9 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
           name,
           parentDir: dirPath,
           isDir: false,
-          containsVmDisk: false,
+          // A standalone .vhdx/.vmdk/etc at this level is itself the virtual
+          // disk — not just a folder that happens to contain one.
+          containsVmDisk: VM_DISK_EXTENSIONS.test(name),
           installedProgramNames,
           runningProcessNames,
         });
