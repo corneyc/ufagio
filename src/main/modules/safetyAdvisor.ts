@@ -18,14 +18,28 @@ export interface Classification {
 // Folder/file names that are, by convention, regenerable caches or build
 // output — safe to delete even though we can't prove the owning app is
 // closed. If deleting one breaks something, the app just rebuilds it.
-const SAFE_NAME_PATTERNS: RegExp[] = [
+const CACHE_NAME_PATTERNS: RegExp[] = [
   /^(cache|caches|tmp|temp|logs?|log)$/i,
   /^(code cache|gpucache|cachestorage|service worker|blob_storage|shader ?cache|d3dscache)$/i,
   /^(npm-cache|yarn-cache|pnpm-store|\.pnpm-store|node-gyp|pip|electron|electron-builder|ms-playwright|cypress|nuget|\.nuget|gradle|\.gradle|\.m2)$/i,
   /^(crashdumps|crash ?reports?|diagnostics)$/i,
   /^squirreltemp$/i,
-  /^(dist|build|out|\.next|\.turbo|\.parcel-cache)$/i,
+  // UWP/Store app packages: LocalCache and TempState are the sandbox's own
+  // cache and scratch space (LocalState/RoamingState/Settings hold app data).
+  /^(localcache|tempstate)$/i,
 ];
+
+// Dev build output — safe as a folder you're looking at, but deliberately
+// NOT inherited by descendants: "out" can sit inside an installed app's
+// own binaries (e.g. VS Code's resources\app\out).
+const BUILD_OUTPUT_PATTERN = /^(dist|build|out|\.next|\.turbo|\.parcel-cache)$/i;
+
+const SAFE_NAME_PATTERNS: RegExp[] = [...CACHE_NAME_PATTERNS, BUILD_OUTPUT_PATTERN];
+
+// Ancestors that stop "inside a cache/temp folder" from conferring safety:
+// installed-app binaries, and cloud-synced user documents (iCloud/etc),
+// where a human-named "Temp" folder can hold real files.
+const NO_INHERIT_PATTERN = /^(programs?|mobile documents|cloudstorage)$/i;
 
 const UPDATER_NAME_PATTERN = /-updater$/i;
 const VM_NAME_PATTERN = /^(wsl|hyper-v|virtualbox ?vms?|parallels|vmware fusion)$/i;
@@ -47,8 +61,12 @@ export function classifyEntry(opts: {
   containsVmDisk: boolean;
   installedProgramNames: Set<string>;
   runningProcessNames: Set<string>;
+  // Win: %LOCALAPPDATA%, Mac: ~/Library. Entries under it inherit "safe"
+  // from a cache/temp ancestor; entries elsewhere never do (a user's own
+  // folder named "Temp" is not disposable).
+  appDataRoot?: string;
 }): Classification {
-  const { name, parentDir, isDir, containsVmDisk, installedProgramNames, runningProcessNames } = opts;
+  const { name, parentDir, isDir, containsVmDisk, installedProgramNames, runningProcessNames, appDataRoot } = opts;
   const lower = name.toLowerCase();
   const parentBase = path.basename(parentDir).toLowerCase();
 
@@ -78,6 +96,26 @@ export function classifyEntry(opts: {
 
   if (isDir && SAFE_NAME_PATTERNS.some((re) => re.test(name))) {
     return { risk: "safe", label: "Cache", reason: "Regenerable cache or build output" };
+  }
+
+  // Disposable by location: anything inside a cache/temp folder under the
+  // app-data region. Runs after the danger checks above, so a virtual disk
+  // or installed-app match inside Temp still wins.
+  if (appDataRoot) {
+    const rel = path.relative(appDataRoot, parentDir);
+    if (rel && !rel.startsWith("..") && !path.isAbsolute(rel)) {
+      const segments = rel.split(path.sep).filter(Boolean);
+      if (!segments.some((s) => NO_INHERIT_PATTERN.test(s))) {
+        const hit = segments.find((s) => CACHE_NAME_PATTERNS.some((re) => re.test(s)));
+        if (hit) {
+          return {
+            risk: "safe",
+            label: /^(tmp|temp|tempstate)$/i.test(hit) ? "In Temp" : "In cache",
+            reason: `Inside "${hit}" — regenerable; close the owning app first if it's running`,
+          };
+        }
+      }
+    }
   }
 
   if (runningProcessNames.has(lower)) {

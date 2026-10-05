@@ -213,6 +213,7 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
     getRunningProcessNames(),
   ]);
   const installedProgramNames = new Set(installedPrograms.map((p) => p.name.toLowerCase()));
+  const appDataRoot = defaultSpaceRoot();
 
   const settled = await Promise.all(
     names.map(async (name): Promise<SpaceChild | null> => {
@@ -236,6 +237,7 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
             containsVmDisk,
             installedProgramNames,
             runningProcessNames,
+            appDataRoot,
           });
           return { name, path: full, isDir: true, sizeBytes, risk, label, reason };
         }
@@ -248,6 +250,7 @@ export async function listSpaceChildren(dirPath: string): Promise<SpaceListing> 
           containsVmDisk: VM_DISK_EXTENSIONS.test(name),
           installedProgramNames,
           runningProcessNames,
+          appDataRoot,
         });
         return { name, path: full, isDir: false, sizeBytes: stat.size, risk, label, reason };
       } catch (e) {
