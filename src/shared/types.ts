@@ -30,6 +30,9 @@ export interface DeleteResultItem {
   path: string;
   ok: boolean;
   error?: string;
+  // True when the file is locked by a running app (EBUSY and friends).
+  // A normal, expected skip — not an error worth alarming the user over.
+  inUse?: boolean;
 }
 
 export type StartupSource = "registry-run" | "startup-folder" | "login-item" | "launch-agent";

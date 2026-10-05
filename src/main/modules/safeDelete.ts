@@ -5,6 +5,14 @@ import { shell } from "electron";
 import { DeleteResultItem } from "../../shared/types";
 import { isHardBlocked, isUnderAny } from "./platform";
 
+// Locked by a running process: Node maps Windows sharing violations to EBUSY,
+// while shell.trashItem only surfaces a message string, so match both.
+function isInUseError(e: unknown): boolean {
+  const err = e as NodeJS.ErrnoException;
+  if (err.code === "EBUSY" || err.code === "ETXTBSY") return true;
+  return /EBUSY|resource busy|being used by another process|sharing violation/i.test(err.message ?? "");
+}
+
 /**
  * Deletes paths, but ONLY if each path sits under one of `allowedRoots` —
  * the roots that were actually returned by the last scan — and is not
@@ -44,7 +52,7 @@ export async function safeDelete(
       }
       results.push({ path: p, ok: true });
     } catch (e) {
-      results.push({ path: p, ok: false, error: (e as Error).message });
+      results.push({ path: p, ok: false, error: (e as Error).message, inUse: isInUseError(e) });
     }
   }
 

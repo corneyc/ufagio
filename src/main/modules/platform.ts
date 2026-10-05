@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -6,8 +7,21 @@ export const isMac = process.platform === "darwin";
 
 export const home = os.homedir();
 
+// Windows hands back 8.3 short names (C:\Users\CORNEL~1\...) in env vars
+// like TEMP when the user name is long. Expand them so the UI shows real
+// paths. Every scan root comes through here, so the allowed-roots check in
+// safeDelete stays consistent with the paths the scan returns.
+function expandShortPath(p: string): string {
+  if (!isWin || !p.includes("~")) return p;
+  try {
+    return fs.realpathSync.native(p);
+  } catch {
+    return p; // folder missing or unreadable — keep what we were given
+  }
+}
+
 export function winEnv(name: string, fallback: string): string {
-  return process.env[name] ?? fallback;
+  return expandShortPath(process.env[name] ?? fallback);
 }
 
 export const winPaths = {

@@ -215,8 +215,13 @@ export function EmptyState(props: { icon: React.ReactNode; title: string; body: 
   );
 }
 
-export function StatusBanner(props: { tone: "success" | "danger"; children: React.ReactNode }) {
-  const success = props.tone === "success";
+export function StatusBanner(props: { tone: "success" | "warning" | "danger"; children: React.ReactNode }) {
+  const tone =
+    props.tone === "success"
+      ? { bg: colors.safeLight, fg: colors.safe }
+      : props.tone === "warning"
+      ? { bg: colors.cautionLight, fg: colors.caution }
+      : { bg: colors.dangerLight, fg: colors.danger };
   return (
     <div
       className="pcc-fade-in"
@@ -228,8 +233,8 @@ export function StatusBanner(props: { tone: "success" | "danger"; children: Reac
         fontWeight: 500,
         padding: "10px 14px",
         borderRadius: radius.sm,
-        background: success ? colors.safeLight : colors.dangerLight,
-        color: success ? colors.safe : colors.danger,
+        background: tone.bg,
+        color: tone.fg,
         marginBottom: 14,
       }}
     >

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { DeleteResultItem, JunkCategory, JunkScanResult } from "../../shared/types";
 import { colors, fontFamily, formatBytes } from "../theme";
+import { summarizeDelete } from "../deleteSummary";
 import {
   ConfirmModal,
   DangerSwitch,
@@ -25,7 +26,7 @@ export function JunkPanel() {
   const [permanent, setPermanent] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [cleaning, setCleaning] = useState(false);
-  const [status, setStatus] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
+  const [status, setStatus] = useState<{ tone: "success" | "warning" | "danger"; text: string } | null>(null);
   const [failedItems, setFailedItems] = useState<DeleteResultItem[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState<Set<string>>(new Set());
@@ -106,13 +107,9 @@ export function JunkPanel() {
     setConfirming(false);
     setCleaning(true);
     const res = await window.api.deleteJunk({ paths: selectedPaths, permanent });
-    const ok = res.filter((r) => r.ok).length;
-    const failures = res.filter((r) => !r.ok);
-    setStatus({
-      tone: failures.length ? "danger" : "success",
-      text: `Cleaned ${ok} file(s)${failures.length ? `, ${failures.length} failed` : ""}.`,
-    });
-    setFailedItems(failures);
+    const summary = summarizeDelete(res, "file", "Cleaned");
+    setStatus({ tone: summary.tone, text: summary.text });
+    setFailedItems(summary.details);
     setDetailsOpen(false);
     setCleaning(false);
     await scan();

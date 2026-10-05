@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { DeleteResultItem, SpaceChild, SpaceOverview, SpaceRisk } from "../../shared/types";
 import { colors, fontFamily, formatBytes } from "../theme";
+import { summarizeDelete } from "../deleteSummary";
 import {
   ConfirmModal,
   DangerSwitch,
@@ -35,7 +36,7 @@ export function SpacePanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [status, setStatus] = useState<{ tone: "success" | "danger"; text: string } | null>(null);
+  const [status, setStatus] = useState<{ tone: "success" | "warning" | "danger"; text: string } | null>(null);
   const [failedItems, setFailedItems] = useState<DeleteResultItem[]>([]);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -109,13 +110,9 @@ export function SpacePanel() {
     setConfirming(false);
     setDeleting(true);
     const res = await window.api.deleteSpaceItem({ paths: [...selected], permanent });
-    const ok = res.filter((r) => r.ok).length;
-    const failures = res.filter((r) => !r.ok);
-    setStatus({
-      tone: failures.length ? "danger" : "success",
-      text: `Removed ${ok} item(s)${failures.length ? `, ${failures.length} failed (often: in use by another app)` : ""}.`,
-    });
-    setFailedItems(failures);
+    const summary = summarizeDelete(res, "item", "Removed");
+    setStatus({ tone: summary.tone, text: summary.text });
+    setFailedItems(summary.details);
     setDetailsOpen(false);
     setDeleting(false);
     if (currentPath) await openPath(currentPath);
