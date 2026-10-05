@@ -1,0 +1,26 @@
+UFAGIO END-USER LICENCE AGREEMENT (BETA)
+
+Please read this before installing. By installing or using Ufagio you accept these terms.
+
+1. What Ufagio does
+Ufagio finds and deletes files on your computer (temporary files, caches, logs, browser data) and changes which programs start with Windows. Deleted files go to the Recycle Bin unless you switch on "Delete permanently". Permanent deletion cannot be undone.
+
+2. Your responsibility
+You choose what to delete. Review the list before you confirm. Keep backups of anything you cannot afford to lose. Ufagio's "safe", "review first" and "danger" labels are guidance based on file names and locations. They are not a guarantee.
+
+3. Beta software
+This is a beta release. It may contain bugs. It is provided "as is" and "as available", with no warranty of any kind, express or implied, including fitness for a particular purpose or that it will not delete files you wanted to keep.
+
+4. Liability
+To the fullest extent the law allows, Zambezi Media Ltd is not liable for any loss of data, files or profits, or for any indirect or consequential loss, arising from your use of Ufagio. Nothing in this agreement excludes liability that cannot be excluded by law, including for death or personal injury caused by negligence, for fraud, or your statutory consumer rights.
+
+5. Licence
+Zambezi Media Ltd grants you a non-exclusive, non-transferable licence to install and use this installer build for personal or business use. The source code is published separately under the MIT licence at https://github.com/corneyc/ufagio. These terms apply to this installer build.
+
+6. Third-party components
+Ufagio includes Electron, Chromium, React and other open-source components under their own licences.
+
+7. Governing law
+This agreement is governed by the laws of Northern Ireland.
+
+Zambezi Media Ltd (company number NI742217)

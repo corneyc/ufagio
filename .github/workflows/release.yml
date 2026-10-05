@@ -12,19 +12,21 @@ jobs:
   build:
     strategy:
       matrix:
+        # Windows only until the macOS checklist in README.md has passed.
         include:
           - os: windows-latest
             script: release:win
-          - os: macos-latest
-            script: release:mac
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run ${{ matrix.script }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Code signing — leave the secrets unset and the build stays unsigned.
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}

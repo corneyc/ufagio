@@ -19,13 +19,23 @@ npm run typecheck
 ## Build installers
 
 ```
-npm run dist:win   # NSIS installer, run from Windows
-npm run dist:mac   # DMG, run from macOS
+npm run dist:win   # NSIS installer in release/, never publishes
+npm run dist:mac   # DMG — unverified, do not distribute yet
 ```
 
 electron-builder cross-compiles poorly for these targets — build the Windows
-installer on Windows and the macOS DMG on macOS (or in CI with matching
-runners).
+installer on Windows and the macOS DMG on macOS.
+
+## Releasing (Windows only for now)
+
+1. Bump `version` in `package.json`, commit, tag `vX.Y.Z` and push the tag.
+2. `release.yml` builds on `windows-latest` and uploads a **draft** GitHub
+   release. Nothing goes public until you publish the draft by hand.
+3. Add repo secrets `CSC_LINK` (base64 `.pfx`) and `CSC_KEY_PASSWORD` to sign
+   the installer. Without them the build is unsigned and SmartScreen will warn.
+
+The installer shows `build/EULA.txt` (no-warranty terms) before install. It is
+a template — have a solicitor review it before wider distribution.
 
 ## Architecture
 
@@ -78,6 +88,8 @@ src/
 
 ## Known gaps (MVP — read before shipping to real users)
 
+- Installer is unsigned until a code-signing certificate is configured (see Releasing).
+- macOS is out of the release workflow until the checklist below passes.
 - Windows registry writes only cover `HKCU` (no admin prompt needed).
   `HKLM` Run entries are not listed or editable in this build.
 - macOS `~/Library/Caches` is scanned per-app-cache-folder in aggregate,
@@ -86,7 +98,7 @@ src/
 - macOS Full Disk Access is not requested/checked; unreadable paths are
   silently skipped and reported as scan errors rather than surfaced as a
   permission prompt.
-- No auto-update, no code signing/notarization config — required before
+- No auto-update, no macOS notarization config — required before
   distributing outside your own machines (Gatekeeper will block an
   unsigned DMG on other Macs; SmartScreen will warn on an unsigned EXE).
 - No telemetry, licensing, or update-check scaffolding — add before this

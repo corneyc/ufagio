@@ -14,11 +14,10 @@
     "build": "npm run build:renderer && npm run build:main",
     "start": "electron .",
     "typecheck": "tsc -p tsconfig.main.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
-    "dist": "npm run build && electron-builder",
-    "dist:win": "npm run build && electron-builder --win",
-    "dist:mac": "npm run build && electron-builder --mac",
-    "release:win": "npm run build && electron-builder --win --publish always",
-    "release:mac": "npm run build && electron-builder --mac --publish always"
+    "dist": "npm run build && electron-builder --win --publish never",
+    "dist:win": "npm run build && electron-builder --win --publish never",
+    "dist:mac": "npm run build && electron-builder --mac --publish never",
+    "release:win": "npm run build && electron-builder --win --publish always"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -49,8 +48,14 @@
     ],
     "win": {
       "target": [
-        "nsis"
-      ]
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
     },
     "mac": {
       "target": [
@@ -61,7 +66,15 @@
     "publish": {
       "provider": "github",
       "owner": "corneyc",
-      "repo": "ufagio"
+      "repo": "ufagio",
+      "releaseType": "draft"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "license": "build/EULA.txt",
+      "artifactName": "Ufagio-Setup-${version}.${ext}"
     }
   },
   "license": "MIT",
