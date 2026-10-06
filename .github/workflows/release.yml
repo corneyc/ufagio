@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -30,3 +31,18 @@ jobs:
           # Code signing — leave the secrets unset and the build stays unsigned.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      - name: Hash installer
+        if: always()
+        shell: pwsh
+        run: |
+          Get-ChildItem release | Format-Table Name, Length
+          Get-ChildItem release\*.exe | ForEach-Object {
+            "$($_.Name)  SHA256 $((Get-FileHash $_.FullName -Algorithm SHA256).Hash)" | Tee-Object -Append $env:GITHUB_STEP_SUMMARY
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ufagio-windows
+          path: |
+            release/*.exe
+            release/latest.yml
